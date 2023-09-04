@@ -1,0 +1,27 @@
+defaults:
+  - base
+
+_target_: gflownet.envs.torus.Torus
+
+id: torus
+func: sincos
+# Dimensions of hypertorus
+n_dim: 2
+# Number of angles per dimension
+n_angles: 8
+# Maximum number of rounds
+length_traj: 12
+# Maximum increment per each dimension that can be done by one action
+max_increment: 1
+# Maximum number of dimensions that can be incremented by one action
+max_dim_per_action: 1
+# Buffer
+buffer:
+  data_path: null
+  train:
+    type: all
+    output_csv: torus_train.csv
+  test:
+    type: all
+    output_csv: torus_test.csv
+    output_pkl: torus_test.pkl
