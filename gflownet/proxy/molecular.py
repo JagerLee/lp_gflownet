@@ -20,9 +20,11 @@ class Molecular(Proxy):
         self.norm = norm
         self.vocab_path = vocab_path
         self.chem_begin_idx = chem_begin_idx
+        self.eos_token_idx = 4
+        self.pad_token_idx = 0
         with open(vocab_path, 'r') as f:
             alphabet = f.readlines()
-        self.alphabet = [s.rstrip() for s in alphabet[chem_begin_idx:]]
+        self.alphabet = [s.rstrip() for s in alphabet]
         self.n_alphabet = len(self.alphabet)
 
     def setup(self, env=None):
@@ -43,9 +45,10 @@ class Molecular(Proxy):
             alphabet = dict(zip(list(range(self.n_alphabet)), self.alphabet))
             smi_list = []
             for s in x:
-                if s == 0:
+                if s == self.eos_token_idx:
                     break
-                smi_list.append(alphabet[s - 1])
+                elif s >= self.chem_begin_idx:
+                    smi_list.append(alphabet[s - 1])
             smi = ''.join(smi_list)
             p = 0 if MolFromSmiles(smi) is None else 1
             return p

@@ -1,6 +1,7 @@
 import torch
 from omegaconf import OmegaConf
 from torch import nn
+from gflownet.policy.molbart.model import *
 
 
 class Policy:
@@ -50,6 +51,9 @@ class Policy:
             self.type = self.base.type
         else:
             raise "Policy type must be defined if shared_weights is False"
+        if "molbart_path" in config:
+            self.molbart_path = config.molbart_path
+        
 
     def instantiate(self):
         if self.type == "fixed":
@@ -61,6 +65,13 @@ class Policy:
         elif self.type == "mlp":
             self.model = self.make_mlp(nn.LeakyReLU()).to(self.device)
             self.is_model = True
+        elif self.type == "molbart":
+            self.bart_model, self.tokeniser = load_model(
+                file_path=self.molbart_path, device=self.device
+            )
+            self.model = self.make_molbart
+            self.is_model = True
+            
         else:
             raise "Policy model type not defined"
 
@@ -138,3 +149,23 @@ class Policy:
         return torch.ones(
             (len(states), self.output_dim), dtype=self.float, device=self.device
         )
+
+    def make_molbart(self, states):
+        batch_size = len(states)
+        memory =  torch.zeros(
+            (1, batch_size, self.bart_model.d_model)
+        ).to(self.device).detach()
+        mem_mask = torch.zeros(
+            (1, batch_size), dtype=torch.bool
+        ).to(self.device).detach()
+        
+        states = torch.tensor(states, dtype=self.float, device=self.device)
+        
+        pad_mask = states == self.tokeniser.vocab[self.tokeniser.pad_token]
+        logsftm = self.bart_model._decode_fn(
+            token_ids=states,
+            pad_mask=pad_mask,
+            mem_pad_mask=mem_mask,
+            memory=memory
+        )
+        return torch.exp(logsftm[-1]).to(dtype=self.float, device=self.device)

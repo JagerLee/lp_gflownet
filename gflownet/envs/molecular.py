@@ -62,10 +62,12 @@ class MolecelarSeq(GFlowNetEnv):
         
         self.alphabet = kwargs['proxy'].alphabet
         self.n_alphabet = kwargs['proxy'].n_alphabet
+        self.eos = (kwargs['proxy'].eos_token_idx,)
+        self.pad = (kwargs['proxy'].pad_token_idx,)
         super().__init__(**kwargs)
         
-        # self.eos = (self.n_alphabet,)
         self.action_space = self.get_action_space()
+        
 
         self.reset()
         self.fixed_policy_output = self.get_fixed_policy_output()
@@ -86,12 +88,11 @@ class MolecelarSeq(GFlowNetEnv):
         """
         assert self.max_word_len >= self.min_word_len
         valid_wordlens = np.arange(self.min_word_len, self.max_word_len + 1)
-        alphabet = [a for a in range(self.n_alphabet + 1)]
+        alphabet = [a for a in range(self.n_alphabet)]
         actions = []
         for r in valid_wordlens:
             actions_r = [el for el in itertools.product(alphabet, repeat=r)]
             actions += actions_r
-        self.eos = actions[-1]
         return actions
 
     def get_max_traj_length(
@@ -114,17 +115,7 @@ class MolecelarSeq(GFlowNetEnv):
         states : list of lists
             List of sequences.
         """
-        queries = [s + [-1] * (self.max_seq_length - len(s)) for s in states]
-        queries = np.array(queries, dtype=int)
-        if queries.ndim == 1:
-            queries = queries[np.newaxis, ...]
-        queries += 1
-        if queries.shape[1] == 1:
-            import ipdb
-
-            ipdb.set_trace()
-            queries = np.column_stack((queries, np.zeros(queries.shape[0])))
-        return queries
+        return self.statebatch2policy(states)
 
     def state2policy(self, state: List = None) -> List:
         """
@@ -145,9 +136,7 @@ class MolecelarSeq(GFlowNetEnv):
         """
         if state is None:
             state = self.state.copy()
-        state_policy = np.zeros(self.n_alphabet * self.max_seq_length, dtype=np.float32)
-        if len(state) > 0:
-            state_policy[(np.arange(len(state)) * self.n_alphabet + state)] = 1
+        state_policy = state
         return state_policy
 
     def statebatch2policy(self, states: List[List]) -> npt.NDArray[np.float32]:
@@ -157,18 +146,16 @@ class MolecelarSeq(GFlowNetEnv):
 
         See state2policy().
         """
-        cols, lengths = zip(
-            *[
-                (state + np.arange(len(state)) * self.n_alphabet, len(state))
-                for state in states
-            ]
-        )
-        rows = np.repeat(np.arange(len(states)), lengths)
-        state_policy = np.zeros(
-            (len(states), self.n_alphabet * self.max_seq_length), dtype=np.float32
-        )
-        if states and states[0]:
-            state_policy[rows, np.concatenate(cols)] = 1.0
+        seq_len = max([len(s) for s in states])
+        state_policy = []
+        for s in states:
+            if len(s) == seq_len:
+                state_policy.append(s)
+            else:
+                sp = s.copy()
+                sp.extend([self.pad[0]] * (seq_len - len(s)))
+                state_policy.append(sp)
+        
         return state_policy
 
     def policy2state(self, state_policy: List) -> List:
@@ -183,9 +170,7 @@ class MolecelarSeq(GFlowNetEnv):
           - state: [0, 0, 1, 3, 2]
                     A, A, T, G, C
         """
-        return np.where(
-            np.reshape(state_policy, (self.max_seq_length, self.n_alphabet))
-        )[1].tolist()
+        return state_policy
 
     def state2readable(self, state, alphabet={0: "A", 1: "T", 2: "C", 3: "G"}):
         """
@@ -207,7 +192,7 @@ class MolecelarSeq(GFlowNetEnv):
         """
         Resets the environment.
         """
-        self.state = []
+        self.state = [3]
         self.n_actions = 0
         self.done = False
         self.id = env_id
@@ -324,6 +309,7 @@ class MolecelarSeq(GFlowNetEnv):
         # print('seq_length:', seq_length)
         if seq_length < self.min_seq_length:
             mask[self.eos[0]] = True
+            mask[self.pad[0]] = True
         for idx, a in enumerate(self.action_space[:-1]):
             if seq_length + len(a) > self.max_seq_length:
                 mask[idx] = True

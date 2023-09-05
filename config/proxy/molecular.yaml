@@ -3,5 +3,5 @@ _target_: gflownet.proxy.molecular.Molecular
 oracle_id: smi2mol
 norm: True
 higher_is_better: True
-vocab_path: '/home/lishuwang/project/gflownet/gflownet-main/gflownet/utils/bart_vocab.txt'
+vocab_path: 'gflownet/policy/molbart/bart_vocab.txt'
 chem_begin_idx: 6
