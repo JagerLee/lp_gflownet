@@ -633,8 +633,6 @@ class GFlowNetEnv:
         state : list
             A state
         """
-        print('base.py, 636')
-        print('states:', states)
         return np.array(states)
 
     def statetorch2proxy(

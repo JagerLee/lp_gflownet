@@ -1,8 +1,8 @@
 defaults:
   - _self_
-  - env: aptamers
+  - env: molecular
   - gflownet: flowmatch
-  - proxy: average
+  - proxy: molecular
   - logger: wandb
   - user: lsw
 

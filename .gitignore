@@ -12,3 +12,4 @@ sh/
 external/
 !requirements.txt
 .DS_Store
+!bart_vocab.txt
