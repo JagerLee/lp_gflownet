@@ -1157,7 +1157,6 @@ class Batch:
                 if item == "state":
                     return self.source["state"]
                 elif item == "mask_f" or item == "mask_forward":
-                    # print(self.source)
                     return self.source["mask_forward"]
                 else:
                     raise ValueError(

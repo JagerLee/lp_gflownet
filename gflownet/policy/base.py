@@ -20,6 +20,8 @@ class Policy:
         self.output_dim = len(self.fixed_output)
         # Optional base model
         self.base = base
+        
+        self.readable = self.env.state2readable
 
         self.parse_config(config)
         self.instantiate()
@@ -66,10 +68,16 @@ class Policy:
             self.model = self.make_mlp(nn.LeakyReLU()).to(self.device)
             self.is_model = True
         elif self.type == "molbart":
-            self.bart_model, self.tokeniser = load_model(
+            bart_model, tokeniser = load_model(
                 file_path=self.molbart_path, device=self.device
             )
-            self.model = self.make_molbart
+            self.model = self.make_molbart(
+                bart_model,
+                tokeniser,
+                self.device,
+                self.float,
+                self.readable
+            )
             self.is_model = True
             
         else:
@@ -150,22 +158,18 @@ class Policy:
             (len(states), self.output_dim), dtype=self.float, device=self.device
         )
 
-    def make_molbart(self, states):
-        batch_size = len(states)
-        memory =  torch.zeros(
-            (1, batch_size, self.bart_model.d_model)
-        ).to(self.device).detach()
-        mem_mask = torch.zeros(
-            (1, batch_size), dtype=torch.bool
-        ).to(self.device).detach()
-        
-        states = torch.tensor(states, dtype=self.float, device=self.device)
-        
-        pad_mask = states == self.tokeniser.vocab[self.tokeniser.pad_token]
-        logsftm = self.bart_model._decode_fn(
-            token_ids=states,
-            pad_mask=pad_mask,
-            mem_pad_mask=mem_mask,
-            memory=memory
+    def make_molbart(
+        self,
+        bart_model: BARTModel,
+        tokeniser: MolEncTokeniser,
+        device,
+        precision,
+        readable
+    ):
+        return Model(
+            bart_model,
+            tokeniser,
+            device,
+            precision,
+            readable
         )
-        return torch.exp(logsftm[-1]).to(dtype=self.float, device=self.device)

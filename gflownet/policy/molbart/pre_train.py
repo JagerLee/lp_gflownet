@@ -540,29 +540,29 @@ class BARTModel(nn.Module):
                 "memory_pad_mask": bool tensor of memory padding mask of shape (src_len, batch_size)
             })
         """
+        with torch.no_grad():
+            decoder_input = batch["decoder_input"]
+            decoder_pad_mask = batch["decoder_pad_mask"].transpose(0, 1)
+            memory_input = batch["memory_input"]
+            memory_pad_mask = batch["memory_pad_mask"].transpose(0, 1)
 
-        decoder_input = batch["decoder_input"]
-        decoder_pad_mask = batch["decoder_pad_mask"].transpose(0, 1)
-        memory_input = batch["memory_input"]
-        memory_pad_mask = batch["memory_pad_mask"].transpose(0, 1)
+            decoder_embs = self._construct_input(decoder_input)
 
-        decoder_embs = self._construct_input(decoder_input)
+            seq_len, _, _ = tuple(decoder_embs.size())
+            tgt_mask = self._generate_square_subsequent_mask(seq_len, device=decoder_embs.device)
 
-        seq_len, _, _ = tuple(decoder_embs.size())
-        tgt_mask = self._generate_square_subsequent_mask(seq_len, device=decoder_embs.device)
+            #print(f'decode: decoder_embs={decoder_embs.dtype},memory_input={memory_input.dtype},decoder_pad_mask={decoder_pad_mask.dtype},memory_pad_mask={memory_pad_mask.dtype},tgt_mask={tgt_mask.dtype}')
 
-        #print(f'decode: decoder_embs={decoder_embs.dtype},memory_input={memory_input.dtype},decoder_pad_mask={decoder_pad_mask.dtype},memory_pad_mask={memory_pad_mask.dtype},tgt_mask={tgt_mask.dtype}')
-
-        model_output = self.decoder(
-            decoder_embs, 
-            memory_input,
-            tgt_key_padding_mask=decoder_pad_mask,
-            memory_key_padding_mask=memory_pad_mask,
-            tgt_mask=tgt_mask
-        )
+            model_output = self.decoder(
+                decoder_embs, 
+                memory_input,
+                tgt_key_padding_mask=decoder_pad_mask,
+                memory_key_padding_mask=memory_pad_mask,
+                tgt_mask=tgt_mask
+            )
         token_output = self.token_fc(model_output)
-        token_probs = self.log_softmax(token_output)
-        return token_probs
+        # token_probs = self.log_softmax(token_output)
+        return token_output
 
     def _decode_fn(self, token_ids, pad_mask, memory, mem_pad_mask):
         decode_input = {

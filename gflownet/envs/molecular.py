@@ -64,10 +64,11 @@ class MolecelarSeq(GFlowNetEnv):
         self.n_alphabet = kwargs['proxy'].n_alphabet
         self.eos = (kwargs['proxy'].eos_token_idx,)
         self.pad = (kwargs['proxy'].pad_token_idx,)
+        self.begin = (kwargs['proxy'].begin_token_idx,)
+        self.token_brackets = kwargs['proxy'].token_brackets
         super().__init__(**kwargs)
         
         self.action_space = self.get_action_space()
-        
 
         self.reset()
         self.fixed_policy_output = self.get_fixed_policy_output()
@@ -136,7 +137,8 @@ class MolecelarSeq(GFlowNetEnv):
         """
         if state is None:
             state = self.state.copy()
-        state_policy = state
+        state_policy = [self.pad[0]] * self.max_seq_length
+        state_policy[:len(state)] = state
         return state_policy
 
     def statebatch2policy(self, states: List[List]) -> npt.NDArray[np.float32]:
@@ -146,16 +148,9 @@ class MolecelarSeq(GFlowNetEnv):
 
         See state2policy().
         """
-        seq_len = max([len(s) for s in states])
-        state_policy = []
-        for s in states:
-            if len(s) == seq_len:
-                state_policy.append(s)
-            else:
-                sp = s.copy()
-                sp.extend([self.pad[0]] * (seq_len - len(s)))
-                state_policy.append(sp)
-        
+        state_policy = np.ones((len(states), self.max_seq_length)) * self.pad[0]
+        for i, state in enumerate(states):
+            state_policy[i, :len(state)] = state
         return state_policy
 
     def policy2state(self, state_policy: List) -> List:
@@ -192,10 +187,11 @@ class MolecelarSeq(GFlowNetEnv):
         """
         Resets the environment.
         """
-        self.state = [3]
+        self.state = []
         self.n_actions = 0
         self.done = False
         self.id = env_id
+        self.brackets = 0
         return self
 
     def get_parents(self, state=None, done=None, action=None):
@@ -281,6 +277,7 @@ class MolecelarSeq(GFlowNetEnv):
                 self.state = state_next
                 valid = True
                 self.n_actions += 1
+                self.brackets += self.token_brackets[action[0]]
             return self.state, action, valid
         # If action is eos, then perform eos
         else:
@@ -290,7 +287,7 @@ class MolecelarSeq(GFlowNetEnv):
                 self.done = True
                 valid = True
                 self.n_actions += 1
-            return self.state, self.eos, valid
+            return self.state, action, valid
 
     def get_mask_invalid_actions_forward(self, state=None, done=None):
         """
@@ -299,21 +296,37 @@ class MolecelarSeq(GFlowNetEnv):
         """
         if state is None:
             state = self.state.copy()
+        if state == []:
+            mask = [True for _ in range(self.action_space_dim)]
+            mask[self.begin[0]] = False
+            return mask
         if done is None:
             done = self.done
         if done:
             return [True for _ in range(self.action_space_dim)]
-        mask = [False for _ in range(self.action_space_dim)]
+        mask = [False if i >= 6 else True for i in range(self.action_space_dim)]
         seq_length = len(state)
-        # print('state:', state)
-        # print('seq_length:', seq_length)
+        
+        for idx, a in enumerate(self.action_space):
+            if seq_length + len(a) > self.max_seq_length and a not in [self.eos, self.pad]:
+                mask[idx] = True
+            num = self.token_brackets[idx]
+            if seq_length + self.brackets >= self.max_seq_length - 1:
+                if num > 0:
+                    mask[idx] = True
+                if seq_length + self.brackets == self.max_seq_length and num == 0:
+                    mask[idx] = True
+            if self.brackets + num < 0:
+                mask[idx] = True
+        mask[self.eos[0]] = False
         if seq_length < self.min_seq_length:
             mask[self.eos[0]] = True
             mask[self.pad[0]] = True
-        for idx, a in enumerate(self.action_space[:-1]):
-            if seq_length + len(a) > self.max_seq_length:
-                mask[idx] = True
-        # print(mask)
+        if seq_length + self.brackets > self.max_seq_length:
+            mask = [True for _ in range(self.action_space_dim)]
+            mask[self.eos[0]] = False
+            return mask
+                
         return mask
 
     def make_train_set(

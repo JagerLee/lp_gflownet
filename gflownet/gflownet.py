@@ -543,7 +543,7 @@ class GFlowNetAgent:
         states = batch.get_states(policy=True)
         parents, parents_actions, parents_state_idx = batch.get_parents_all(policy=True)
         done = batch.get_done()
-        masks_sf = batch.get_masks_forward()
+        masks_sf = batch.get_masks_forward()[~done]
         parents_a_idx = self.env.actions2indices(parents_actions)
         rewards = batch.get_rewards()
         assert torch.all(rewards[done] > 0)
@@ -559,17 +559,37 @@ class GFlowNetAgent:
         ]
         inflow = torch.logsumexp(inflow_logits, dim=1)
         # Out-flows
-        outflow_logits = self.forward_policy(states)
-        outflow_logits[masks_sf] = -torch.inf
+        # outflow_logits = self.forward_policy(states)
+        # outflow_logits[masks_sf] = -torch.inf
+
+        outflow_logits = torch.ones(
+            inflow_logits[~done].size(), dtype=self.float, device=self.device
+        ) * -torch.inf
+        outflow_logits[~masks_sf] = self.forward_policy(states[[~done]])[~masks_sf]
         outflow = torch.logsumexp(outflow_logits, dim=1)
         # Loss at terminating nodes
         loss_term = (inflow[done] - torch.log(rewards[done])).pow(2).mean()
         contrib_term = done.eq(1).to(self.float).mean()
         # Loss at intermediate nodes
-        loss_interm = (inflow[~done] - outflow[~done]).pow(2).mean()
+        loss_interm = (inflow[~done] - outflow).pow(2).mean()
         contrib_interm = done.eq(0).to(self.float).mean()
         # Combined loss
         loss = contrib_term * loss_term + contrib_interm * loss_interm
+        # torch.set_printoptions(threshold=np.inf)
+        # print('done:', done)
+        # print('states:', states)
+        # print('parents:', parents)
+        # print('inflow_logits:', inflow_logits)
+        # print('inflow:', inflow)
+        # print('outflow_logits:', outflow_logits)
+        # print('outflow:', outflow)
+        # print('masks_sf:', masks_sf)
+        # print('reward:', rewards[done])
+        # print('loss_term:', loss_term)
+        # print('loss_interm:', loss_interm)
+        # print('contrib_term:', contrib_term)
+        # print('contrib_interm:', contrib_interm)
+        # print('loss:', loss)
         return loss, loss_term, loss_interm
 
     def trajectorybalance_loss(self, it, batch):
@@ -690,6 +710,7 @@ class GFlowNetAgent:
                     if len(all_losses) > 0:
                         all_losses.append([loss for loss in all_losses[-1]])
                 else:
+                    self.opt.zero_grad()
                     losses[0].backward()
                     if self.clip_grad_norm > 0:
                         torch.nn.utils.clip_grad_norm_(
@@ -698,6 +719,7 @@ class GFlowNetAgent:
                     self.opt.step()
                     self.lr_scheduler.step()
                     self.opt.zero_grad()
+
                     all_losses.append([i.item() for i in losses])
             # Buffer
             t0_buffer = time.time()
@@ -766,7 +788,8 @@ class GFlowNetAgent:
             else:
                 loss_term_ema = losses[1].item()
                 loss_flow_ema = losses[2].item()
-
+            del losses
+            torch.cuda.empty_cache()
             # Log times
             t1_iter = time.time()
             times.update({"iter": t1_iter - t0_iter})

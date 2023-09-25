@@ -1,0 +1,7 @@
+_target_: gflownet.proxy.dockbart.DockBART
+
+oracle_id: dockbart
+vocab_path: '/home/lishuwang/project/GFlowNet/gflownet-molbart/vocab.txt'
+chem_begin_idx: 6
+model_path: '/home/lishuwang/project/GFlowNet/gflownet-molbart/val-epoch=36-loss=0.46_without_module.pt'
+device: 'cuda:0'

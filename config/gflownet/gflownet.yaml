@@ -4,9 +4,9 @@ seed: 0
 # Optimizer
 optimizer:
   # Loss function
-  loss: trajectorybalance
+  loss: flowmatch
   # Learning rates
-  lr: 0.001
+  lr: 0.0001
   lr_decay_period: 1000000
   lr_decay_gamma: 0.5
   method: adam
@@ -22,7 +22,7 @@ optimizer:
   # Number of trajectories of each kind
   batch_size:
     # Forward on-policy (possibly tempered and/or with random actions)
-    forward: 50
+    forward: 32
     # Backward from training set
     backward_dataset: 0
     # Backward from replay buffer
@@ -30,7 +30,7 @@ optimizer:
   # Train to sample ratio
   train_to_sample_ratio: 1
   # Number of training iterations
-  n_train_steps: 10000
+  n_train_steps: 100
   # From original implementation
   bootstrap_tau: 0.0
   clip_grad_norm: 0.0
@@ -47,11 +47,13 @@ pct_offline: 0.0
   # Policy
 policy:
   forward:
-    type: mlp
-    n_hid: 128
-    n_layers: 2
-    checkpoint: null
-    reload_ckpt: False
+    # type: mlp
+    # n_hid: 128
+    # n_layers: 2
+    # checkpoint: null
+    # reload_ckpt: False
+    type: molbart
+    molbart_path: /home/lishuwang/project/LP_Chemformer/100/tb_logs/mask_aug/version_1/checkpoints/epoch=0-step=50000-loss=0.90.pt
   backward: null
   ckpt_period: null
 num_empirical_loss: 200000
