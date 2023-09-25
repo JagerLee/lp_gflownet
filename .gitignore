@@ -13,3 +13,6 @@ external/
 !requirements.txt
 .DS_Store
 !bart_vocab.txt
+!selfies.txt
+!smilespe_vocab.txt
+!SPE_ChEMBL.txt
