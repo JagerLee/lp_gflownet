@@ -1,0 +1,14 @@
+__pycache__/
+.idea/
+datasets
+easy_run_1
+old
+*.pyc
+*.pyo
+*.sw*
+sh/
+*.txt
+!requirements.txt
+logs
+gflownet/data/*
+*.csv

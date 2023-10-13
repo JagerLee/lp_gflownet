@@ -1,0 +1,28 @@
+defaults:
+  - base
+
+_target_: gflownet.envs.grid.Grid
+
+id: grid
+func: corners
+# Dimensions of hypergrid
+n_dim: 2
+# Number of cells per dimension
+length: 3
+# Minimum and maximum number of steps in the action space
+min_step_len: 1
+max_step_len: 1
+# Mapping coordinates
+cell_min: -1
+cell_max: 1
+# Buffer
+buffer:
+  data_path: null
+  train:
+    type: all
+    output_csv: grid_train.csv
+    output_pkl: grid_train.pkl
+  test:
+    type: all
+    output_csv: grid_test.csv
+    output_pkl: grid_test.pkl

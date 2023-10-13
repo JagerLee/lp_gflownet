@@ -1,0 +1,20 @@
+defaults:
+  - gflownet
+
+optimizer:
+  loss: trajectorybalance
+  lr: 0.0001
+  lr_z_mult: 10
+  z_dim: 16
+  lr_decay_period: 1000000
+  lr_decay_gamma: 0.5
+
+policy:
+  backward_1:
+    shared_weights: True
+    checkpoint: null
+    reload_ckpt: False
+  backward_2:
+    shared_weights: True
+    checkpoint: null
+    reload_ckpt: False

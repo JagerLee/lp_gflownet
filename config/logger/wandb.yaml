@@ -1,0 +1,12 @@
+defaults:
+  - base
+
+_target_: gflownet.utils.logger.Logger
+
+do:
+  online: False
+
+project_name: "GFlowNet"
+
+tags: 
+    - gflownet

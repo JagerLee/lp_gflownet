@@ -1,0 +1,277 @@
+from queue import PriorityQueue
+from typing import Dict, List
+
+
+class _Node(object):
+    """node of huffman tree
+    """
+
+    def __init__(self, num: int, weight: int):
+        self._num = num
+        self._weight = weight
+        self._left_child = None
+        self._right_child = None
+
+    def add_child(self, type: int, child):
+        """add child for node
+
+        Args:
+            type: 0 if left child, 1 if right child
+            child: node of child
+        """
+        if type == 0:
+            self._left_child = child
+        else:
+            self._right_child = child
+
+    def num(self) -> int:
+        return self._num
+
+    def left_child(self):
+        return self._left_child
+
+    def right_child(self):
+        return self._right_child
+
+    def weight(self) -> int:
+        return self._weight
+
+    def __lt__(self, o):
+        if self.weight() <= o.weight():
+            return True
+        return False
+
+#输入count字典（每个词索引的出现次数）
+class HuffmanTree(object):
+    """huffman tree
+
+    left child of every node following with 0
+    right child of every node following with 1
+    tree must have at least one node
+    
+    注意，prob_list的索引等价于num（所有结点的索引）
+    """
+
+    #输入的是labels字典，每个词索引的出现次数
+    def __init__(self, labels: Dict[int, int] = None):
+        """initialize huffman tree
+
+        Args:
+            labels: maps from label to occurrence time
+        """
+        self._cnt = 0
+        self._label2num: Dict[int, int] = {}#在当前任务下，label等价于num
+        self._num2label: Dict[int, int] = {}
+        self._path: Dict[int, List[int]] = {}#存储每个结点的完整路径（从根节点到该结点的路径）
+
+        if labels is None:
+            return
+
+        nodes = PriorityQueue()#优先队列
+        for x in labels:
+            self._label2num[x] = self._cnt#将每个词索引转换为self._cnt
+            self._num2label[self._cnt] = x#num2label
+            nodes.put(_Node(self._cnt, labels[x]))#将每个词索引的出现次数作为权重，构建优先队列
+            self._cnt += 1
+
+        #非叶子结点添加
+        while nodes.qsize() >= 2:
+            a = nodes.get()#词频最小的叶子结点
+            b = nodes.get()
+
+            c = _Node(self._cnt, a.weight() + b.weight())#构建一个新的结点c，其权重为a和b的权重之和
+            self._cnt += 1
+
+            c.add_child(0, a)#将a和b作为c的左右子结点
+            c.add_child(1, b)
+
+            nodes.put(c)#将c加入优先队列，此时优先队列中的元素个数减少1，直到队列中只剩下一个结点（作为根结点）
+
+        self._root = nodes.get()#队列最后剩下的结点就是根结点
+        self._DFS(-1, self._root)#递归遍历树，得到每个叶子节点的路径（从根节点到该叶子节点的路径）
+
+    def _DFS(self, par: int, current: _Node):
+        if current is None:
+            return
+        if par == -1:
+            self._path[current.num()] = [current.num()]
+        else:
+            self._path[current.num()] = self._path[par] + [current.num()]
+
+        self._DFS(current.num(), current.left_child())
+        self._DFS(current.num(), current.right_child())
+
+
+    
+    
+    #输入num，返回其对应的路径列表（列表元素代表了节点索引）
+    #不一定是label叶子节点，非叶子结点也可以
+    # def path(self,label):
+    #     return self._path[label]
+    
+    #修改版,输入结点的num，返回其路径列表
+    def path(self,num):
+        return self._path[num]
+    
+    #判断当前节点索引是其父节点的左儿子(返回True)or右儿子(返回False)
+    #num_s:当前节点索引，num_p：父节点索引
+    def check(self,num_s,num_p):
+        pos_nodes,neg_nodes = self.get(num_s)
+        if num_p in pos_nodes:
+            return True
+        else:
+            return False
+    
+    #输入分子索引（label），返回正节点和负节点的列表
+    # def get(self, label: int) -> (List[int], List[int]):
+    #     """get path of node in huffman tree
+
+    #     Args:
+    #         label: label of wanted node
+
+    #     Returns:
+    #         positive node in which node get left
+    #         negative node in which node get right
+    #     """
+    #     pos_nodes = []
+    #     neg_nodes = []
+    #     current = self._root
+
+    #     for i in range(1, len(self._path[self._label2num[label]])):
+    #         x = self._path[self._label2num[label]][i]
+    #         if current.left_child().num() == x:
+    #             pos_nodes.append(self._path[self._label2num[label]][i-1])
+    #             current = current.left_child()
+    #         else:
+    #             neg_nodes.append(self._path[self._label2num[label]][i-1])
+    #             current = current.right_child()
+
+    #     return pos_nodes, neg_nodes
+    
+    #修改版，输入结点索引（num），返回正结点和负结点的列表
+    def get(self, num: int) -> (List[int], List[int]):
+        """get path of node in huffman tree
+
+        Args:
+            num: index of wanted node
+
+        Returns:
+            positive node in which node get left
+            negative node in which node get right
+        """
+        pos_nodes = []
+        neg_nodes = []
+        current = self._root
+
+        for i in range(1, len(self._path[num])):
+            x = self._path[num][i]
+            if current.left_child().num() == x:
+                pos_nodes.append(self._path[num][i-1])
+                current = current.left_child()
+            else:
+                neg_nodes.append(self._path[num][i-1])
+                current = current.right_child()
+
+        return pos_nodes, neg_nodes
+    
+
+    #输入概率（所有节点的概率列表），返回叶子节点（label）
+    def find(self, probability: List[float]) -> int:
+        """get node following given path
+
+        Args:
+            probability: probability of getting left child on every node
+
+        Returns:
+            end label of path
+        """
+        current: _Node = self._root#从根结点开始
+        while True:
+            current_num = current.num()#当前结点的索引
+            if probability[current_num] >= 0.5:
+                child = current.left_child()#如果概率大于等于0.5，选择左子结点
+            else:
+                child = current.right_child()#否则选择右子结点
+
+            if child is None:#如果子结点为空，说明当前结点是叶子结点
+                if current_num in self._num2label:
+                    return self._num2label[current_num]
+                else:
+                    return -1
+            current = child
+
+    def dump(self, path: str):
+        """dump parameters of huffman tree
+
+        Args:
+            path: path to dump parameters
+        """
+        with open(path, 'w') as f:
+            f.write(str(self._root.num()) + '\n')
+            f.write(str(self._cnt) + '\n')
+
+            rec: List[str] = ["" for i in range(self._cnt)]
+            stack: List[_Node] = [self._root]
+            while len(stack) != 0:
+                x = stack[-1]
+                stack.pop()
+
+                if x is None:
+                    continue
+
+                left_child = x.left_child()
+                right_child = x.right_child()
+                if left_child is None:
+                    left_child = _Node(-1, 0)
+                if right_child is None:
+                    right_child = _Node(-1, 0)
+
+                rec[x.num()] = "%d %d %d" % (
+                    x.weight(), left_child.num(), right_child.num())
+                stack.append(x.left_child())
+                stack.append(x.right_child())
+            for s in rec:
+                f.write(s + '\n')
+
+            for label in self._label2num:
+                f.write("%s %d\n" % (label, self._label2num[label]))
+
+    def load(self, path: str):
+        """load parameters from given file
+
+        Args:
+            path: path of parameters
+        """
+        nodes = {}
+        nodes[-1] = None
+        childs = []
+        with open(path, 'r') as f:
+            line_count = 0
+            for line in f:
+                current = line.strip()
+
+                if line_count == 0:
+                    self._root = int(current)
+                elif line_count == 1:
+                    self._cnt = int(current)
+                elif line_count <= self._cnt + 1:
+                    param = current.split()
+                    cnt = line_count - 2
+                    nodes[cnt] = _Node(cnt, int(param[0]))
+                    childs.append(
+                        [cnt, int(param[1]), int(param[2])])
+                else:
+                    param = current.split()
+                    self._label2num[int(param[0])] = int(param[1])
+                    self._num2label[int(param[1])] = int(param[0])
+                line_count += 1
+
+        for p in childs:
+            par = nodes[p[0]]
+            par.add_child(0, nodes[p[1]])
+            par.add_child(1, nodes[p[2]])
+        self._root = nodes[self._root]
+
+    def __len__(self):
+        return self._cnt
+    
